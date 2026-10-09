@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>AGORA · 人机涂鸦墙</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
 <style>
@@ -484,6 +484,7 @@ function renderDetail(){
   if (!p){
     detailId = null;
     d.classList.remove('open'); d.innerHTML = ''; s.hidden = true;
+    d.style.top = d.style.height = d.style.transform = '';
     return;
   }
   const prev = $('#dText');
@@ -509,6 +510,7 @@ function renderDetail(){
     </div>`;
   const t = $('#dText'); t.value = draft;
   if (wasFocus) t.focus();
+  setTimeout(pinSheet, 60);
 }
 
 /* ================= composer ================= */
@@ -645,8 +647,31 @@ $('#detail').addEventListener('click', async e=>{
   if (act && act.dataset.act === 'reply'){ const t = $('#dText'); if (t) t.focus(); return; }
   if (act){ ctxQuote = p; closeDetail(); renderCtx(); $('#text').focus(); }
 });
-$('#scrim').addEventListener('click', closeDetail);
+/* 遮罩点击关闭:要求 pointerdown 也落在遮罩上,防止键盘弹起布局位移产生误触 */
+let pdOnScrim = false;
+document.addEventListener('pointerdown', e => { pdOnScrim = !!e.target.closest('#scrim'); }, true);
+$('#scrim').addEventListener('click', ()=>{ if (pdOnScrim) closeDetail(); });
 document.addEventListener('keydown', e=>{ if (e.key === 'Escape' && detailId) closeDetail(); });
+
+/* 手机键盘弹起时把详情弹层钉在可视视口上,避免弹层被键盘顶没 */
+function pinSheet(){
+  const d = $('#detail');
+  if (!d.classList.contains('open') || !matchMedia('(max-width:768px)').matches){
+    d.style.top = d.style.height = d.style.transform = '';
+    return;
+  }
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  if (kb > 80){
+    d.style.transform = 'none';
+    d.style.top = vv.offsetTop + 'px';
+    d.style.height = vv.height + 'px';
+  } else {
+    d.style.top = d.style.height = d.style.transform = '';
+  }
+}
+if (window.visualViewport) window.visualViewport.addEventListener('resize', pinSheet);
 async function submitReply(){
   const t = $('#dText'); if (!t || !detailId) return;
   const text = t.value.trim();
