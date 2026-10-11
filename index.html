@@ -29,25 +29,8 @@
     --hole:rgba(20,18,14,.13);
     --glass:rgba(233,230,224,.72);
   }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --bg:#26251F;
-      --slab:rgba(57,54,46,.72);
-      --slab-solid:#39362E;
-      --slab2:rgba(255,250,240,.06);
-      --text:#EAE2D0;
-      --text2:#CFC7B4;
-      --muted:#9C937E;
-      --line:rgba(234,226,208,.16);
-      --line2:rgba(234,226,208,.08);
-      --terra:#D9703F;
-      --terra-tint:rgba(217,112,63,.16);
-      --ink-shadow:0 1px 3px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35);
-      --inset:inset 0 1px 0 rgba(255,250,240,.06);
-      --hole:rgba(0,0,0,.5);
-      --glass:rgba(45,43,36,.8);
-    }
-  }
+  /* 永远浅色:不跟系统深色模式走,手机/桌面统一混凝土浅色 */
+  :root{ color-scheme: light; }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{height:100%;margin:0}
