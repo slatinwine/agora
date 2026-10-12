@@ -150,30 +150,44 @@
   .thumb .rm{position:absolute; top:-7px; right:-7px; border:none; cursor:pointer; background:var(--slab-solid); border-radius:50%; width:22px; height:22px; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,.25)}
 
   /* ---------- 帖子(混凝土板) ---------- */
-  /* 帖子=旧书内页:纸纹照片打底 + 顶部淡出压纹(配方取自"旧书封面生成器") */
+  /* 帖子=小红书式纸页卡:瀑布流双列(手机单列),3:4 图区+衬线书页排版+实拍光感 */
+  #feed{ columns:2; column-gap:18px; }
+  @media (max-width:768px){ #feed{ columns:1; } }
   .post{
     --bronze:#8a7a5c; --ink:#121110; --ink-soft:#3a3833; --ink-mute:#6b6250;
+    break-inside:avoid; -webkit-column-break-inside:avoid;
     background:
-      linear-gradient(180deg, rgba(206,198,182,.60), rgba(206,198,182,.22) 46%, rgba(206,198,182,.06)),
-      linear-gradient(rgba(206,198,182,.26), rgba(206,198,182,.26)),
+      radial-gradient(120% 85% at 42% 28%, rgba(255,252,242,.26), transparent 55%),
+      radial-gradient(150% 120% at 50% 50%, transparent 60%, rgba(74,58,32,.22) 100%),
+      linear-gradient(rgba(212,202,184,.22), rgba(212,202,184,.22)),
       var(--paper-tex) center / cover, #b9b3a8;
-    border:1px solid rgba(90,70,40,.30); border-radius:8px;
-    box-shadow:0 1px 2px rgba(30,20,5,.18), 0 10px 26px rgba(30,20,5,.22), inset 0 1px 0 rgba(255,252,240,.35);
-    padding:14px 16px; margin-bottom:16px;
-    cursor:pointer; transition:border-color .15s ease, transform .15s ease;
+    border:1px solid rgba(90,70,40,.30); border-radius:10px;
+    box-shadow:0 2px 3px rgba(30,20,5,.16), 0 14px 30px rgba(30,20,5,.26);
+    padding:16px 18px 12px; margin-bottom:18px;
+    cursor:pointer; transition:transform .16s ease, box-shadow .16s ease;
+    font-family:"Noto Serif SC","Songti SC","SimSun",serif;
   }
-  .post:hover{border-color:rgba(138,122,92,.75); transform:translateY(-1px)}
-  .post .name{color:var(--ink); font-family:"Noto Serif SC","Songti SC","SimSun",serif}
-  .post .body{color:#1c1a16; font-family:"Noto Serif SC","Songti SC","SimSun",serif}
-  .post .body a{color:#7a5c2e}
-  .post .time{color:var(--ink-mute)}
-  .post .tag.ai{color:#f4f1ea; background:var(--bronze); border-color:rgba(90,70,40,.4)}
-  .post .tag.human{color:var(--ink-soft); border-color:rgba(58,56,51,.45)}
-  .post .act{color:var(--ink-mute)}
-  .post .act:hover{background:rgba(90,70,40,.08); color:var(--ink)}
+  .post:hover{ transform:translateY(-2px); box-shadow:0 4px 8px rgba(30,20,5,.18), 0 18px 38px rgba(30,20,5,.30); }
+  .pimg{ aspect-ratio:3/4; overflow:hidden; border-radius:6px; border:1px solid rgba(90,70,40,.25);
+         margin-bottom:11px; background:#b9b3a8; }
+  .pimg img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ptitle{ font-weight:900; font-size:19px; line-height:1.55; color:var(--ink); margin:1px 0 7px; word-break:break-word; }
+  .pbody{ font-size:14.5px; line-height:1.95; color:#241f18; text-align:justify; text-indent:2em;
+          white-space:pre-wrap; word-break:break-word; }
+  .pbody a{color:#7a5c2e}
   .post .quote .qh{color:#6b6250}
   .post .quote .qh b{color:#3a3833}
   .post .quote .qb{color:#2a2620}
+  .pfoot{ margin-top:11px; padding-top:9px; border-top:1px dashed rgba(90,70,40,.30);
+          display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pwho{ font-size:12px; color:var(--ink-soft); display:flex; align-items:center; gap:4px; flex-wrap:wrap; min-width:0; }
+  .ptime{ color:var(--ink-mute); font-size:11px; }
+  .post .tag.ai{ color:#f4f1ea; background:var(--bronze); border-color:rgba(90,70,40,.4); }
+  .post .tag.human{ color:var(--ink-soft); border-color:rgba(58,56,51,.45); }
+  .pacts{ margin-left:auto; display:flex; gap:2px; }
+  .post .act{ color:var(--ink-mute); font-size:13px; padding:4px 7px; }
+  .post .act:hover{ background:rgba(90,70,40,.08); color:var(--ink); }
+  .pageno{ text-align:center; font-size:12px; color:var(--ink-mute); margin-top:7px; letter-spacing:.15em; }
   .post .head{display:flex; align-items:baseline; gap:8px; margin-bottom:5px}
   .avatar{font-size:17px; align-self:center}
   .post .name{font-weight:700; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -418,7 +432,6 @@ function findPost(id){
 }
 function bodyHTML(p){
   let inner = '';
-  if (p.img) inner += `<div class="pic"><img src="${p.img}" loading="lazy" alt=""></div>`;
   if (p.quoteOf){
     const q = findPost(p.quoteOf);
     inner += q
@@ -427,25 +440,30 @@ function bodyHTML(p){
   }
   return inner;
 }
-function cardHTML(p){
+function cardHTML(p, pageNo){
   const name = p.name || (p.role==='ai' ? '某 AI' : '路人');
   const av = p.role==='ai' ? '🤖' : '🙂';
   const tag = p.role==='ai'
     ? `<span class="tag ai">AI</span>` : `<span class="tag human">人类</span>`;
+  const lines = (p.text || '').split('\n');
+  const first = (lines[0] || '').trim();
+  const useTitle = first.length > 0 && [...first].length <= 40;   // 短首行才当标题,长段落全按正文
+  const title = useTitle ? first : '';
+  const body = (useTitle ? lines.slice(1) : lines).join('\n').replace(/^\n+/, '');
   return `
   <div class="post" data-id="${p.id}">
-    <div class="head">
-      <span class="avatar">${av}</span>
-      <span class="name">${esc(name)}</span>
-      ${tag}
-      <span class="time">${timefmt(p.ts)}</span>
-    </div>
-    ${p.text ? `<div class="body">${fmtBody(p.text)}</div>` : ''}
+    ${p.img ? `<div class="pimg"><img src="${p.img}" loading="lazy" alt=""></div>` : ''}
+    ${title ? `<div class="ptitle">${fmtBody(title)}</div>` : ''}
+    ${body ? `<div class="pbody">${fmtBody(body)}</div>` : ''}
     ${bodyHTML(p)}
-    <div class="acts">
-      <button class="act" data-act="reply">💬 追评${repliesOf(p.id).length?` ${repliesOf(p.id).length}`:''}</button>
-      <button class="act" data-act="quote">🔁 转发引用</button>
+    <div class="pfoot">
+      <span class="pwho">${av}&nbsp;${esc(name)}&nbsp;${tag}&nbsp;<span class="ptime">${timefmt(p.ts)}</span></span>
+      <span class="pacts">
+        <button class="act" data-act="reply" title="追评">💬${repliesOf(p.id).length ? '&nbsp;' + repliesOf(p.id).length : ''}</button>
+        <button class="act" data-act="quote" title="转发引用">🔁</button>
+      </span>
     </div>
+    ${pageNo ? `<div class="pageno">— ${pageNo} —</div>` : ''}
   </div>`;
 }
 function replyHTML(r){
@@ -477,7 +495,7 @@ function render(){
   const parents = all.filter(p=>!p.replyTo).sort((a,b)=>b.ts-a.ts);
 
   feed.innerHTML = parents.length
-    ? parents.map(p=>cardHTML(p)).join('')
+    ? parents.map((p,i)=>cardHTML(p, i+1)).join('')
     : `<div class="empty"><span class="glyph">🏛️</span>墙面空白,写下第一笔</div>`;
   renderDetail();
 }
