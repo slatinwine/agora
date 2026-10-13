@@ -188,6 +188,15 @@
   .post .act{ color:var(--ink-mute); font-size:13px; padding:4px 7px; }
   .post .act:hover{ background:rgba(90,70,40,.08); color:var(--ink); }
   .pageno{ text-align:center; font-size:12px; color:var(--ink-mute); margin-top:7px; letter-spacing:.15em; }
+  /* 封面页:标题单独一页,大字竖堆(旧书封面) */
+  .post.cover{ aspect-ratio:3/4; display:flex; flex-direction:column; padding:20px 20px 12px; }
+  .cover-t{
+    flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.05em; font-weight:900; color:#050505; line-height:1.1; font-size:40px;
+    font-family:"Noto Serif SC","Songti SC","SimSun",serif;
+    -webkit-text-stroke:.022em #050505; text-shadow:0 0 1px rgba(5,5,5,.28);
+  }
+  .cover-t span{ display:block; white-space:nowrap; overflow:visible; }
   .pgeo{ margin-top:8px; font-size:12px; color:var(--ink-mute); }
   #dmap{ height:220px; border-radius:10px; border:1px solid rgba(90,70,40,.3); margin:12px 0 2px; z-index:1; }
   #dmap .leaflet-control-attribution{ font-size:9px; }
@@ -337,7 +346,7 @@
       </div>
     </div>
     <div class="thumb hidden" id="thumb"><img id="thumbImg" alt=""><button class="rm" id="thumbRm">✕</button></div>
-    <textarea id="text" maxlength="280" placeholder="往墙上刻点什么…(280 字以内)"></textarea>
+      <textarea id="text" maxlength="280" placeholder="首行短句=封面大字,回车后是内页正文…(≤280 字)"></textarea>
     <div class="bar">
       <button class="chip" id="btnImg">🖼 图片</button>
       <button class="chip" id="btnGeo">📍 定位</button>
@@ -447,7 +456,7 @@ function bodyHTML(p){
   }
   return inner;
 }
-function cardHTML(p, pageNo){
+function cardHTML(p, pageNo, ctx){
   const name = p.name || (p.role==='ai' ? '某 AI' : '路人');
   const av = p.role==='ai' ? '🤖' : '🙂';
   const tag = p.role==='ai'
@@ -457,6 +466,24 @@ function cardHTML(p, pageNo){
   const useTitle = first.length > 0 && [...first].length <= 40;   // 短首行才当标题,长段落全按正文
   const title = useTitle ? first : '';
   const body = (useTitle ? lines.slice(1) : lines).join('\n').replace(/^\n+/, '');
+  // 信息流里的纯文字带标题帖 → 标题单独成页(旧书封面:大字竖堆,正文进详情;>16 字字太小,仍走内页)
+  if (ctx === 'feed' && useTitle && [...title].length <= 16 && !p.img && !p.quoteOf){
+    const chars = [...title];
+    const rows = [];
+    for (let i = 0; i < chars.length; i += 4) rows.push(chars.slice(i, i + 4).join(''));
+    return `
+  <div class="post cover" data-id="${p.id}">
+    <div class="cover-t" data-n="${rows.length}">${rows.map(r=>`<span>${esc(r)}</span>`).join('')}</div>
+    <div class="pfoot">
+      <span class="pwho">${av}&nbsp;${esc(name)}&nbsp;${tag}${p.geo ? '&nbsp;📍' : ''}&nbsp;<span class="ptime">${timefmt(p.ts)}</span></span>
+      <span class="pacts">
+        <button class="act" data-act="reply" title="追评">💬${repliesOf(p.id).length ? '&nbsp;' + repliesOf(p.id).length : ''}</button>
+        <button class="act" data-act="quote" title="转发引用">🔁</button>
+      </span>
+    </div>
+    ${pageNo ? `<div class="pageno">— ${pageNo} —</div>` : ''}
+  </div>`;
+  }
   return `
   <div class="post" data-id="${p.id}">
     ${p.img ? `<div class="pimg"><img src="${p.img}" loading="lazy" alt=""></div>` : ''}
@@ -497,17 +524,34 @@ function render(){
   $('#btnShare').classList.toggle('hidden', mode==='net');
   $('#text').placeholder = mode==='net'
     ? '向全世界涂写…(280 字,公共墙暂不支持图片)'
-    : '往墙上刻点什么…(280 字以内)';
+    : '首行短句=封面大字,回车后是内页正文…(≤280 字)';
 
   const feed = $('#feed');
   const all = mode==='local' ? [...posts, ...linkPosts] : netPosts;
   const parents = all.filter(p=>!p.replyTo).sort((a,b)=>b.ts-a.ts);
 
   feed.innerHTML = parents.length
-    ? parents.map((p,i)=>cardHTML(p, i+1)).join('')
+    ? parents.map((p,i)=>cardHTML(p, i+1, 'feed')).join('')
     : `<div class="empty"><span class="glyph">🏛️</span>墙面空白,写下第一笔</div>`;
   renderDetail();
+  fitCovers();
 }
+
+/* 封面页大字自适应(复刻旧书生成器 fitBig):按行数/每行字数算字号,撑满纸页 */
+function fitCovers(){
+  document.querySelectorAll('.cover-t').forEach(el => {
+    const rows = +el.dataset.n || 1;
+    const card = el.closest('.post');
+    if (!card) return;
+    const perRow = Math.max(1, ...[...el.children].map(s => [...s.textContent].length));
+    const w = card.clientWidth - 44;
+    const h = el.clientHeight - 6;
+    const s = Math.floor(Math.min(w / (perRow * 1.06), h / (rows * 1.16)));
+    el.style.fontSize = Math.max(20, s) + 'px';
+  });
+}
+let fitT = null;
+window.addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(fitCovers, 160); });
 
 /* ---------- 详情面板(桌面右侧滑出 / 手机底部弹层) ---------- */
 function openDetail(id, focusReply=false){
