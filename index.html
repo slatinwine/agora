@@ -188,6 +188,9 @@
   .post .act{ color:var(--ink-mute); font-size:13px; padding:4px 7px; }
   .post .act:hover{ background:rgba(90,70,40,.08); color:var(--ink); }
   .pageno{ text-align:center; font-size:12px; color:var(--ink-mute); margin-top:7px; letter-spacing:.15em; }
+  .pgeo{ margin-top:8px; font-size:12px; color:var(--ink-mute); }
+  #dmap{ height:220px; border-radius:10px; border:1px solid rgba(90,70,40,.3); margin:12px 0 2px; z-index:1; }
+  #dmap .leaflet-control-attribution{ font-size:9px; }
   .post .head{display:flex; align-items:baseline; gap:8px; margin-bottom:5px}
   .avatar{font-size:17px; align-self:center}
   .post .name{font-weight:700; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -337,6 +340,7 @@
     <textarea id="text" maxlength="280" placeholder="往墙上刻点什么…(280 字以内)"></textarea>
     <div class="bar">
       <button class="chip" id="btnImg">🖼 图片</button>
+      <button class="chip" id="btnGeo">📍 定位</button>
       <button class="chip primary" id="btnPost">发布</button>
       <button class="chip" id="btnShare">🔗 分享</button>
       <span class="count" id="count">280</span>
@@ -364,6 +368,8 @@ let posts = loadPosts();            // 本地墙(含 localStorage)
 let linkPosts = [];                 // 从分享链接载入的(临时展示,可存入本地)
 let ctxQuote = null;                // 引用转发的目标帖
 let detailId = null;                // 详情面板展示的帖子 id
+let pendingGeo = null;              // {lat,lng,acc} 待附位置
+let dmapObj = null;                 // 详情面板里的 Leaflet 实例
 let pendingImg = null;              // dataURL
 let role = localStorage.getItem(LS.role) || 'human';
 
@@ -394,6 +400,7 @@ function b64d(s){
 }
 const bytesToHex = b => [...b].map(x=>x.toString(16).padStart(2,'0')).join('');
 const hexToBytes = h => new Uint8Array(h.match(/.{2}/g).map(x=>parseInt(x,16)));
+const fmtGeo = g => `${Math.abs(g.lat).toFixed(4)}°${g.lat>=0?'N':'S'}, ${Math.abs(g.lng).toFixed(4)}°${g.lng>=0?'E':'W'}`;
 
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -456,6 +463,7 @@ function cardHTML(p, pageNo){
     ${title ? `<div class="ptitle">${fmtBody(title)}</div>` : ''}
     ${body ? `<div class="pbody">${fmtBody(body)}</div>` : ''}
     ${bodyHTML(p)}
+    ${p.geo ? `<div class="pgeo">📍 ${fmtGeo(p.geo)}${p.geo.acc ? ` <span class="muted">(±${p.geo.acc}m)</span>` : ''}</div>` : ''}
     <div class="pfoot">
       <span class="pwho">${av}&nbsp;${esc(name)}&nbsp;${tag}&nbsp;<span class="ptime">${timefmt(p.ts)}</span></span>
       <span class="pacts">
@@ -485,6 +493,7 @@ const repliesOf = id => (mode==='local' ? [...posts, ...linkPosts] : netPosts)
 function render(){
   // 模式相关 UI
   $('#btnImg').disabled = mode==='net';
+  $('#btnGeo').disabled = mode==='net';
   $('#btnShare').classList.toggle('hidden', mode==='net');
   $('#text').placeholder = mode==='net'
     ? '向全世界涂写…(280 字,公共墙暂不支持图片)'
@@ -513,6 +522,7 @@ function renderDetail(){
     detailId = null;
     d.classList.remove('open'); d.innerHTML = ''; s.hidden = true;
     d.style.top = d.style.height = d.style.transform = '';
+    if (dmapObj){ dmapObj.remove(); dmapObj = null; }
     return;
   }
   const prev = $('#dText');
@@ -525,6 +535,7 @@ function renderDetail(){
     <div class="dtop"><b>帖子详情</b><button class="dclose" title="关闭">✕</button></div>
     <div class="dscroll">
       ${cardHTML(p)}
+      ${p.geo ? `<div id="dmap"></div>` : ''}
       <div class="dsep"></div>
       ${rs.length ? `<div class="thread">${rs.map(replyHTML).join('')}</div>`
                   : `<div class="dempty muted">还没有追评,在下面刻第一刀</div>`}
@@ -539,6 +550,18 @@ function renderDetail(){
   const t = $('#dText'); t.value = draft;
   if (wasFocus) t.focus();
   setTimeout(pinSheet, 60);
+  if (p.geo){
+    loadLeaflet().then(L => {
+      const el = $('#dmap'); if (!el) return;
+      if (dmapObj){ dmapObj.remove(); dmapObj = null; }
+      dmapObj = L.map(el).setView([p.geo.lat, p.geo.lng], 14);
+      // 高德瓦片(OSM 瓦片国内不可达;GCJ-02 与 GPS 有数百米偏移,对"位置感"够用)
+      L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { subdomains:'1234', maxZoom:18 }).addTo(dmapObj);
+      if (p.geo.acc) L.circle([p.geo.lat, p.geo.lng], { radius:p.geo.acc, weight:1, color:'#8a7a5c' }).addTo(dmapObj);
+      L.marker([p.geo.lat, p.geo.lng]).addTo(dmapObj);
+      setTimeout(()=>{ if (dmapObj) dmapObj.invalidateSize(); }, 150);
+    }).catch(()=>toast('地图组件加载失败,坐标: ' + fmtGeo(p.geo)));
+  }
 }
 
 /* ================= composer ================= */
@@ -593,6 +616,35 @@ $('#file').onchange = e=>{
 };
 $('#thumbRm').onclick = ()=>{ pendingImg = null; $('#thumb').classList.add('hidden'); };
 
+/* 位置:浏览器 GPS 定位,再点一次移除;详情页有 Leaflet 小地图 */
+$('#btnGeo').onclick = () => {
+  if (mode === 'net'){ toast('公共墙不支持位置'); return; }
+  if (pendingGeo){ pendingGeo = null; $('#btnGeo').textContent = '📍 定位'; toast('已移除位置'); return; }
+  if (!navigator.geolocation){ toast('此浏览器不支持定位'); return; }
+  toast('正在定位…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    pendingGeo = { lat:+pos.coords.latitude.toFixed(6), lng:+pos.coords.longitude.toFixed(6), acc:Math.round(pos.coords.accuracy || 0) };
+    $('#btnGeo').textContent = '📍 ' + fmtGeo(pendingGeo);
+    toast(`已定位(±${pendingGeo.acc}m),再点一次移除`);
+  }, err => toast('定位失败: ' + err.message), { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+};
+let leafletLoading = null;
+function loadLeaflet(){
+  if (leafletLoading) return leafletLoading;
+  leafletLoading = new Promise((res, rej) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(css);
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    s.onload = () => res(window.L);
+    s.onerror = () => rej(new Error('Leaflet CDN 不可达'));
+    document.head.appendChild(s);
+  });
+  return leafletLoading;
+}
+
 /* 发布 */
 $('#btnPost').onclick = async ()=>{
   const text = $('#text').value.trim();
@@ -604,6 +656,7 @@ $('#btnPost').onclick = async ()=>{
   if (mode === 'local'){
     const p = { id:uid(), name, role, text, ts:Math.floor(Date.now()/1000) };
     if (pendingImg) p.img = pendingImg;
+    if (pendingGeo) p.geo = pendingGeo;
     if (ctxQuote) p.quoteOf = ctxQuote.id;
     posts.push(p); savePosts();
     afterPost(p);
@@ -616,6 +669,7 @@ $('#btnPost').onclick = async ()=>{
 function afterPost(p){
   $('#text').value = ''; updCount();
   pendingImg = null; $('#thumb').classList.add('hidden');
+  pendingGeo = null; $('#btnGeo').textContent = '📍 定位';
   ctxQuote = null; renderCtx();
   render();
 }
