@@ -363,7 +363,7 @@
 </div></main>
 <div class="scrim" id="scrim" hidden></div>
 
-<footer>静态页面 · 无服务器 · 本地墙数据只在你的浏览器与分享链接里 · 公共墙走 Nostr 中继</footer>
+<footer>静态页面 · 云端档案来自飞书多维表格(定时同步) · 新帖先存你的浏览器 · 分享走链接 · 公共墙走 Nostr 中继</footer>
 <div id="toast"></div>
 
 <script type="module">
@@ -375,6 +375,14 @@ const LS = { posts:'agora.posts', sk:'agora.sk', name:'agora.name', role:'agora.
 let mode = 'local';                 // 'local' | 'net'
 let posts = loadPosts();            // 本地墙(含 localStorage)
 let linkPosts = [];                 // 从分享链接载入的(临时展示,可存入本地)
+let baseWall = [];                  // 云端基座墙(wall-data.json,飞书多维表格经 GitHub Action 同步)
+/* 本地模式数据池:云端基座 + 本地 + 链接,按 id 去重(云端优先),供 findPost/repliesOf/render 共用 */
+const localPool = () => {
+  const seen = new Set(), out = [];
+  for (const p of [...baseWall, ...posts, ...linkPosts])
+    if (p && p.id && !seen.has(p.id)) { seen.add(p.id); out.push(p); }
+  return out;
+};
 let ctxQuote = null;                // 引用转发的目标帖
 let detailId = null;                // 详情面板展示的帖子 id
 let pendingGeo = null;              // {lat,lng,acc} 待附位置
@@ -443,7 +451,7 @@ function screenContent(text, name){
 
 /* ================= 渲染 ================= */
 function findPost(id){
-  const pool1 = mode==='local' ? [...posts, ...linkPosts] : netPosts;
+  const pool1 = mode==='local' ? localPool() : netPosts;
   return pool1.find(p => p.id === id);
 }
 function bodyHTML(p){
@@ -514,7 +522,7 @@ function replyHTML(r){
     ${r.text ? `<div class="body">${fmtBody(r.text)}</div>` : ''}
   </div>`;
 }
-const repliesOf = id => (mode==='local' ? [...posts, ...linkPosts] : netPosts)
+const repliesOf = id => (mode==='local' ? localPool() : netPosts)
   .filter(p => p.replyTo === id).sort((a,b)=>a.ts-b.ts);
 
 function render(){
@@ -527,7 +535,7 @@ function render(){
     : '首行短句=封面大字,回车后是内页正文…(≤280 字)';
 
   const feed = $('#feed');
-  const all = mode==='local' ? [...posts, ...linkPosts] : netPosts;
+  const all = mode==='local' ? localPool() : netPosts;
   const parents = all.filter(p=>!p.replyTo).sort((a,b)=>b.ts-a.ts);
 
   feed.innerHTML = parents.length
@@ -720,13 +728,14 @@ function afterPost(p){
 
 /* 分享:整面墙编码进链接 hash */
 $('#btnShare').onclick = ()=>{
-  if (!posts.length){ toast('墙上还没有你的帖子'); return; }
+  const sharePool = mode==='local' ? localPool() : netPosts;
+  if (!sharePool.length){ toast('墙上还没有你的帖子'); return; }
   const url = location.origin.startsWith('http')
-    ? `${location.origin}${location.pathname}#w=${b64e({p:posts})}`
-    : `${location.href.split('#')[0]}#w=${b64e({p:posts})}`;
+    ? `${location.origin}${location.pathname}#w=${b64e({p:sharePool})}`
+    : `${location.href.split('#')[0]}#w=${b64e({p:sharePool})}`;
   const u2 = url.length > 30000 ? (()=>{ toast('内容太多,链接可能被聊天软件截断'); return url; })() : url;
   (async ()=>{
-    try { await navigator.clipboard.writeText(u2); toast('分享链接已复制(含 '+posts.length+' 帖)'); }
+    try { await navigator.clipboard.writeText(u2); toast('分享链接已复制(含 '+sharePool.length+' 帖)'); }
     catch { prompt('复制分享链接:', u2); }
   })();
 };
@@ -882,6 +891,10 @@ $('#modeSeg').addEventListener('click', e=>{
 parseHash();
 updCount();
 render();
+/* 云端基座墙:同源拉 wall-data.json(飞书多维表格 → GitHub Action 同步生成);失败静默,退回纯本地 */
+fetch('wall-data.json').then(r => r.ok ? r.json() : null).then(d => {
+  if (d && Array.isArray(d.posts) && d.posts.length){ baseWall = d.posts; render(); }
+}).catch(()=>{});
 </script>
 </body>
 </html>
