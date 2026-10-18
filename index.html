@@ -352,8 +352,33 @@
       <button class="chip" id="btnGeo">📍 定位</button>
       <button class="chip primary" id="btnPost">发布</button>
       <button class="chip" id="btnShare">🔗 分享</button>
+      <button class="chip" id="btnCloud">☁️ 上公共墙</button>
       <span class="count" id="count">280</span>
       <input type="file" id="file" accept="image/*" hidden>
+    </div>
+  </div>
+
+  <!-- 公共墙表单弹层:内嵌飞书多维表格的匿名公开表单,提交即落表,无需登录 -->
+  <style>
+    .cmodal{position:fixed; inset:0; background:rgba(20,20,18,.55); backdrop-filter:blur(2px); z-index:90;
+      display:flex; align-items:center; justify-content:center; padding:16px}
+    .cmodal.hidden{display:none}
+    .cbox{background:#f2f0ea; border-radius:14px; width:min(560px,94vw); height:min(78vh,720px);
+      display:flex; flex-direction:column; overflow:hidden; box-shadow:0 18px 60px rgba(0,0,0,.35)}
+    .cbox header{display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #d8d5cc}
+    .cbox header b{font-size:14px}
+    .cbox header .sub{font-size:11px; color:#8b8a83; margin-right:auto}
+    .cbox iframe{flex:1; border:0; width:100%}
+    .cbox .chip{cursor:pointer}
+  </style>
+  <div class="cmodal hidden" id="cloudModal">
+    <div class="cbox">
+      <header>
+        <b>☁️ 写上公共墙</b><span class="sub">免登录 · 提交后约半小时内出现在墙上</span>
+        <button class="chip" id="cOpen">↗ 新窗口</button>
+        <button class="chip" id="cClose">✕</button>
+      </header>
+      <iframe id="cloudForm" title="写上公共墙"></iframe>
     </div>
   </div>
 
@@ -887,14 +912,37 @@ $('#modeSeg').addEventListener('click', e=>{
   render();
 });
 
+/* ================= 公共墙表单弹层 ================= */
+const FORM_URL = 'https://ccn8owe9p2sc.feishu.cn/share/base/shrcnQa6ny9yYKwNPwZGqXkHoXc';
+$('#btnCloud').onclick = ()=>{
+  const name = localStorage.getItem(LS.name) || '';
+  $('#cloudForm').src = FORM_URL + (name ? `?prefill_${encodeURIComponent('署名')}=${encodeURIComponent(name)}` : '');
+  $('#cOpen').onclick = ()=> window.open($('#cloudForm').src, '_blank');
+  $('#cClose').onclick = ()=>{ $('#cloudModal').classList.add('hidden'); $('#cloudForm').src='about:blank'; };
+  $('#cloudModal').classList.remove('hidden');
+};
+$('#cloudModal').addEventListener('click', e=>{ if (e.target.id === 'cloudModal') $('#cClose').click(); });
+
 /* ================= 启动 ================= */
 parseHash();
 updCount();
 render();
 /* 云端基座墙:同源拉 wall-data.json(飞书多维表格 → GitHub Action 同步生成);失败静默,退回纯本地 */
+let cloudIds = new Set();
 fetch('wall-data.json').then(r => r.ok ? r.json() : null).then(d => {
-  if (d && Array.isArray(d.posts) && d.posts.length){ baseWall = d.posts; render(); }
+  if (d && Array.isArray(d.posts) && d.posts.length){
+    baseWall = d.posts; cloudIds = new Set(d.posts.map(p=>p.id)); render();
+  }
 }).catch(()=>{});
+/* 云端档案自动刷新:5 分钟一轮,有新帖提示一次 */
+setInterval(()=>{
+  fetch('wall-data.json', { cache:'no-store' }).then(r => r.ok ? r.json() : null).then(d=>{
+    if (!d || !Array.isArray(d.posts) || !d.posts.length) return;
+    const fresh = cloudIds.size ? d.posts.filter(p=>!cloudIds.has(p.id)).length : 0;
+    baseWall = d.posts; cloudIds = new Set(d.posts.map(p=>p.id)); render();
+    if (fresh) toast(`☁️ 云端档案更新 +${fresh} 帖`);
+  }).catch(()=>{});
+}, 5*60*1000);
 </script>
 </body>
 </html>

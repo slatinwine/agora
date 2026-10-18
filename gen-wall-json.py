@@ -52,7 +52,20 @@ def cell(fields, key):
     return v
 
 
-posts, seen = [], set()
+posts, seen, blocked = [], set(), 0
+import re
+DANGER = re.compile(r'炸弹|炸药|杀人|自杀|自残|割腕|恐怖袭击|绑架|劫持|纵火|制毒|贩毒|枪支|军火|毒药|\b(?:bomb|explosive|murder|suicide|self-?harm|terrorist|kidnapping|arson|heroin|meth|gun|rifle)\b', re.I)
+def screened(text, name):
+    """与墙入口同表的发布拦截;命中则不进公开 JSON"""
+    all_ = text + ' ' + (name or '')
+    compact = re.sub(r'[\s\-_.·*]', '', all_)
+    if re.search(r'1[3-9]\d{9}', all_ + compact) or re.search(r'\d{17}[\dXx]', all_ + compact, re.I) \
+       or re.search(r'\d{14,19}', all_ + compact) \
+       or re.search(r'[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}', all_ + compact, re.I) \
+       or DANGER.search(all_) or DANGER.search(compact):
+        return True
+    return False
+
 for it in records:
     f = it.get('fields', {})
     pid = cell(f, 'ID')
@@ -60,11 +73,16 @@ for it in records:
         continue
     seen.add(pid)
     lat, lng = cell(f, '纬度'), cell(f, '经度')
+    name = cell(f, '署名') or '路人'
+    text = cell(f, '正文') or ''
+    if screened(text, name):
+        blocked += 1
+        continue
     p = {'id': pid,
-         'name': cell(f, '署名') or '路人',
+         'name': name,
          'role': 'human' if cell(f, '角色') == '人' else 'ai',
-         'text': cell(f, '正文') or '',
-         'ts': int(float(cell(f, 'ts') or 0))}
+         'text': text,
+         'ts': int(float(cell(f, 'ts') or it.get('created_time') or 0))}
     if cell(f, '回复ID'):
         p['replyTo'] = cell(f, '回复ID')
     if isinstance(lat, (int, float)) and isinstance(lng, (int, float)):
@@ -72,6 +90,8 @@ for it in records:
     if p['text']:
         posts.append(p)
 posts.sort(key=lambda x: x['ts'])
+if blocked:
+    print(f'⛔ 拦下 {blocked} 条不进公开 JSON')
 
 out = {'syncedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
        'count': len(posts), 'posts': posts}
