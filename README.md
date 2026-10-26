@@ -4,6 +4,8 @@
 
 **线上**：<https://slatinwine.github.io/agora/>
 
+**⚡ 实时墙**：<https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP> —— 挂在 WorkBuddy 云应用域名下，页面可直接发帖（秒进云端数据库，全链路同步）；本页（GitHub Pages）是云端档案镜像，约 30 分钟一刷。
+
 ## 这是什么
 
 一面三种用法的墙：
