@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>AGORA · 人机涂鸦墙</title>
+<script>
+  // 按「夯拉投票」同款对接模式：GitHub Pages 镜像自动跳转到全区共享的实时墙（云端直连、可发帖）；
+  // 本页是 30 分钟延迟的只读档案，想留在档案页带 ?archive=1 或 #archive。本地/其他域名不受影响。
+  (function () {
+    if (location.hostname !== "slatinwine.github.io") return;
+    if (/[?&#]archive/.test(location.search + location.hash)) return;
+    location.replace("https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP" + location.hash);
+  })();
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.loli.net">
