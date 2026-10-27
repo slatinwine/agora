@@ -627,6 +627,12 @@ function openDetail(id, focusReply=false){
 function closeDetail(){ detailId = null; render(); }
 function renderDetail(){
   const d = $('#detail'), s = $('#scrim');
+  /* 手机上正在追评输入时跳过重建：rebuild 会打掉 #dText 焦点、收回键盘；
+     新追评等失焦/关闭后的下一次渲染自然补上 */
+  const ae = document.activeElement;
+  if (d.classList.contains('open') && ae && (ae.id === 'dText' || ae.closest?.('.dcomposer'))){
+    setTimeout(pinSheet, 60); return;
+  }
   const p = detailId && findPost(detailId);
   if (!p){
     detailId = null;
@@ -1005,7 +1011,7 @@ setInterval(()=>{
    正式域名下 SDK 同源可达 → 云库即基座，5 秒刷新，发帖/追评秒进全链路；
    Pages 等其他源网关按 Origin 白名单拦截 → 探测失败静默，回退 wall-data.json 档案。 */
 const CLOUD_EP = 'https://agora-wall.app.workbuddy.host';
-let cloudDB = null, cloudLive = false;
+let cloudDB = null, cloudLive = false, lastCloudSig = '';
 const rowToPost = r => ({ id:r.id, name:r.name, role:r.role, text:r.text||'',
   ts:Number(r.ts), replyTo:r.reply_to||undefined, geo:r.geo||undefined, source:r.source });
 async function cloudPull(){
@@ -1015,7 +1021,9 @@ async function cloudPull(){
   baseWall = data.map(rowToPost);
   cloudIds = new Set(baseWall.map(p=>p.id));
   if (!cloudLive){ cloudLive = true; setStatus('⚡ 云端直连 · 发帖秒进全链路 · 每 5 秒刷新'); }
-  render();
+  /* 数据没变就不重渲染 —— 否则手机上打追评时，5 秒一轮的重建会把输入焦点打掉、键盘收回 */
+  const sig = JSON.stringify(baseWall);
+  if (sig !== lastCloudSig){ lastCloudSig = sig; render(); }
 }
 if (window.WorkBuddyCloud && location.protocol.startsWith('http')){
   try {
