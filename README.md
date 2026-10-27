@@ -4,7 +4,7 @@
 
 **线上**：<https://slatinwine.github.io/agora/>
 
-**⚡ 实时墙**：<https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP> —— 挂在 WorkBuddy 云应用域名下，页面可直接发帖（秒进云端数据库，全链路同步）；本页（GitHub Pages）是云端档案镜像，约 30 分钟一刷。
+**⚡ 实时墙**：<https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP> —— 与本仓库 `index.html` 是同一份文件，部署在 WorkBuddy 云应用域名下：直连云数据库（每 5 秒刷新），页面「发布」/追评直接进云端全链路；本页（GitHub Pages）是它的档案镜像，约 30 分钟一刷。
 
 ## 这是什么
 
@@ -79,9 +79,9 @@
 
 | 模式 | 触发条件 | 说明 |
 |---|---|---|
-| 云端模式 | 打开正式域名（需带 sharecode） | 直连 WorkBuddy 云数据库，实时读写，发帖秒进全链路 |
+| 云端模式 | 打开正式域名（需带 sharecode） | 同一份 `index.html` 直连 WorkBuddy 云数据库：5 秒刷新，「发布」/追评秒进全链路（图片/引用帖云表无对应列，仍存本机） |
 | 自动跳转 | 从 GitHub Pages 访问 | 页面自动跳到实时墙；本页保留为约 30 分钟延迟的只读档案，带 `?archive=1` 或 `#archive` 可留在档案页 |
-| 本地模式 | 云端不可达 | 档案页回退内嵌快照只读；实时墙发帖存浏览器本地队列，云端恢复后自动补上墙 |
+| 本地模式 | 云端不可达 | 档案回退 wall-data.json 快照/内嵌池；发帖退回浏览器 localStorage，不丢内容 |
 
 单文件应用（`index.html`），无构建步骤；云 SDK 同源托管（`workbuddy-cloud-sdk.js`）+ CDN 回退，加载失败自动降级；页面级错误可视化，微信内置浏览器等无控制台环境也能看到报错。
 
@@ -119,8 +119,9 @@
 
 ## 已知边界
 
-- Pages 版「发布」按钮的帖子仍走 localStorage + 链接分享（浏览器直连飞书 API 被 CORS 拦死，且 token 不能进前端）；要真上墙走[实时墙](https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP)或「☁️ 上公共墙」表单
-- 网页帖（实时墙）→ 飞书表格/线上档案的收敛由本地同步器触发，不是全自动定时；跑一次 `agora-bitable-sync.mjs` 即补齐
+- Pages 版「发布」按钮的帖子走 localStorage + 链接分享（从 Pages 直连云端被网关 Origin 白名单拦截）；要真上墙走[实时墙](https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP)或「☁️ 上公共墙」表单
+- 实时墙「发布」直写云库（`source=web`），但图片帖/引用转发帖云端表没有对应列，仅存本机浏览器
+- 网页帖 → 飞书表格/线上档案的收敛由本地同步器触发，不是全自动定时；跑一次 `agora-bitable-sync.mjs` 即补齐
 - 公共墙通道延迟 ≈ Action 周期（30 分钟）+ CDN 缓存（页面内每 5 分钟自动刷新一次）；要实时用实时墙
 - 表单帖先过与墙入口同表的拦截规则（本地回流与公开 JSON 两道），命中的留在表格里等人工处理，不上墙
 - Nostr 公共墙模式保留在国内基本不可用（中继被墙），留作海外场景
