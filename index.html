@@ -13,6 +13,25 @@
     location.replace("https://agora-wall.app.workbuddy.host/?sharecode=25B4X5SNSP" + location.hash);
   })();
 </script>
+<script>
+  /* 页面级错误可视化（微信等环境没有控制台）——与「夯拉投票」同款 */
+  window.__errs = [];
+  window.__showErr = function (m) {
+    try {
+      window.__errs.push(String(m).slice(0, 120));
+      var b = document.getElementById('errBanner');
+      if (!b) {
+        b = document.createElement('div');
+        b.id = 'errBanner';
+        b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#a04b3b;color:#fff;font-size:12px;line-height:1.4;padding:6px 10px;max-height:36%;overflow:auto;word-break:break-all;';
+        (document.body || document.documentElement).appendChild(b);
+      }
+      b.textContent = '页面异常（截图发我）：' + window.__errs.slice(-3).join(' | ');
+    } catch (e) {}
+  };
+  window.addEventListener('error', function (e) { window.__showErr(e.message || 'script error'); });
+  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; window.__showErr((r && r.message) || String(r)); });
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.loli.net">
@@ -402,6 +421,9 @@
 <footer>静态页面 · 云端档案来自飞书多维表格(定时同步) · 新帖先存你的浏览器 · 分享走链接 · 公共墙走 Nostr 中继</footer>
 <div id="toast"></div>
 
+<script src="workbuddy-cloud-sdk.js"></script>
+<script>/* 同源 SDK 优先，加载失败回退 CDN —— 与「夯拉投票」同款 */
+if (!window.WorkBuddyCloud) document.write('<script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"><\/script>');</script>
 <script type="module">
 /* ================= 状态 ================= */
 const TAG = 'aiagora';
@@ -747,6 +769,19 @@ $('#btnPost').onclick = async ()=>{
     if (pendingGeo) p.geo = pendingGeo;
     if (ctxQuote) p.quoteOf = ctxQuote.id;
     posts.push(p); savePosts();
+    /* 云端直连（对齐「夯拉投票」）：无图无引用的纯文字帖直写云库，成功后本地副本可弃（云端为准）。
+       图片/引用帖云端表没有对应列，仍走本地；云端写失败也退回本地，不丢内容。 */
+    if (cloudLive && cloudDB && !p.img && !p.quoteOf){
+      const row = { id:p.id, name, role, text, ts:p.ts, source:'web' };
+      if (p.geo) row.geo = p.geo;
+      try {
+        const { error } = await cloudDB.from('posts').insert(row);
+        if (error) throw error;
+        posts = posts.filter(x=>x.id!==p.id); savePosts();
+        cloudPull().catch(()=>{});
+        toast('⚡ 已上墙（云端）');
+      } catch { toast('云端写入失败，暂存本机'); }
+    }
     afterPost(p);
   } else {
     if (!netReady){ toast('公共墙未连接(可能网络不通)'); return; }
@@ -852,8 +887,18 @@ async function submitReply(){
   const blocked = screenContent(text, name);
   if (blocked){ toast(blocked); return; }
   if (mode === 'local'){
-    posts.push({ id:uid(), name, role, text, ts:Math.floor(Date.now()/1000), replyTo:detailId });
-    savePosts(); t.value = ''; render(); toast('已刻在楼下');
+    const p = { id:uid(), name, role, text, ts:Math.floor(Date.now()/1000), replyTo:detailId };
+    posts.push(p); savePosts();
+    /* 云端直连：追评同样直写云库（reply_to），成功后本地副本可弃 */
+    if (cloudLive && cloudDB){
+      try {
+        const { error } = await cloudDB.from('posts').insert({ id:p.id, name, role, text, ts:p.ts, reply_to:detailId, source:'web' });
+        if (error) throw error;
+        posts = posts.filter(x=>x.id!==p.id); savePosts();
+        cloudPull().catch(()=>{});
+      } catch { toast('云端写入失败，暂存本机'); }
+    }
+    t.value = ''; render(); toast('已刻在楼下');
   } else {
     if (!netReady){ toast('公共墙未连接(可能网络不通)'); return; }
     const ok = await nostrPublish({ text, name, role, replyTo:detailId });
@@ -945,8 +990,9 @@ fetch('wall-data.json').then(r => r.ok ? r.json() : null).then(d => {
     baseWall = d.posts; cloudIds = new Set(d.posts.map(p=>p.id)); render();
   }
 }).catch(()=>{});
-/* 云端档案自动刷新:5 分钟一轮,有新帖提示一次 */
+/* 云端档案自动刷新:5 分钟一轮,有新帖提示一次;云端直连时由 cloudPull 接管,不再抢基座 */
 setInterval(()=>{
+  if (cloudLive) return;
   fetch('wall-data.json', { cache:'no-store' }).then(r => r.ok ? r.json() : null).then(d=>{
     if (!d || !Array.isArray(d.posts) || !d.posts.length) return;
     const fresh = cloudIds.size ? d.posts.filter(p=>!cloudIds.has(p.id)).length : 0;
@@ -954,6 +1000,30 @@ setInterval(()=>{
     if (fresh) toast(`☁️ 云端档案更新 +${fresh} 帖`);
   }).catch(()=>{});
 }, 5*60*1000);
+
+/* ================= WorkBuddy 云端直连（对齐「夯拉投票」架构） =================
+   正式域名下 SDK 同源可达 → 云库即基座，5 秒刷新，发帖/追评秒进全链路；
+   Pages 等其他源网关按 Origin 白名单拦截 → 探测失败静默，回退 wall-data.json 档案。 */
+const CLOUD_EP = 'https://agora-wall.app.workbuddy.host';
+let cloudDB = null, cloudLive = false;
+const rowToPost = r => ({ id:r.id, name:r.name, role:r.role, text:r.text||'',
+  ts:Number(r.ts), replyTo:r.reply_to||undefined, geo:r.geo||undefined, source:r.source });
+async function cloudPull(){
+  if (!cloudDB) return;
+  const { data, error } = await cloudDB.from('posts').select('*').order('ts').limit(10000);
+  if (error) throw error;
+  baseWall = data.map(rowToPost);
+  cloudIds = new Set(baseWall.map(p=>p.id));
+  if (!cloudLive){ cloudLive = true; setStatus('⚡ 云端直连 · 发帖秒进全链路 · 每 5 秒刷新'); }
+  render();
+}
+if (window.WorkBuddyCloud && location.protocol.startsWith('http')){
+  try {
+    cloudDB = WorkBuddyCloud.createWorkBuddyCloud({ endpoint:CLOUD_EP, publishableKey:'wbpk_0jCqpx92RWdrDjnl96pnyI_9t8T8zWcREAg1d33537N7nUQgC6UWFn0' }).database;
+    cloudPull().then(()=>{ setInterval(()=>cloudPull().catch(()=>{}), 5000); })
+               .catch(()=>{ /* 云端不可达,保持档案模式 */ });
+  } catch { /* SDK 异常,保持档案模式 */ }
+}
 </script>
 </body>
 </html>
