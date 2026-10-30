@@ -356,6 +356,7 @@
   </div>
   <div class="right">
     <div class="status" id="status"></div>
+    <button class="chip" id="btnAuth">登录</button>
     <div class="seg" id="modeSeg">
       <button data-mode="local" class="on">本地墙</button>
       <button data-mode="net">公共墙</button>
@@ -400,6 +401,33 @@
     .cbox header .sub{font-size:11px; color:#8b8a83; margin-right:auto}
     .cbox iframe{flex:1; border:0; width:100%}
     .cbox .chip{cursor:pointer}
+
+    /* ---- 登录注册弹层（参考 account-center） ---- */
+    .abox{background:#f2f0ea; border-radius:14px; width:min(420px,94vw); max-height:min(86vh,720px);
+      display:flex; flex-direction:column; overflow:hidden; box-shadow:0 18px 60px rgba(0,0,0,.35)}
+    .abox header{display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #d8d5cc}
+    .abox header b{font-size:14px}
+    .abox header .sub{font-size:11px; color:#8b8a83; margin-right:auto}
+    .abody{padding:16px; overflow:auto}
+    .atabs{display:flex; gap:6px; margin-bottom:14px}
+    .atabs button{flex:1; border:1px solid #d8d5cc; background:transparent; border-radius:999px;
+      padding:7px 0; font:inherit; font-size:13px; cursor:pointer; color:#55534c}
+    .atabs button.on{background:#23231f; color:#f2f0ea; border-color:#23231f}
+    .aform{display:flex; flex-direction:column; gap:10px}
+    .aform input{border:1px solid #c9c6bc; border-radius:10px; background:#fff; font:inherit;
+      font-size:14px; padding:9px 12px; outline:none}
+    .aform input:focus{border-color:#3a6ea5}
+    .arow{display:flex; gap:8px}
+    .arow input{flex:1; min-width:0}
+    .amsg{font-size:12px; min-height:16px; color:#4c6b3c; word-break:break-all}
+    .amsg.bad{color:#a04b3b}
+    .alink{font-size:12px; color:#3a6ea5; cursor:pointer; text-decoration:underline; text-align:center}
+    .asess{display:flex; gap:12px; align-items:center; margin-bottom:12px}
+    .aav{width:40px; height:40px; border-radius:50%; background:#23231f; color:#f2f0ea;
+      display:flex; align-items:center; justify-content:center; font-weight:700; flex:none}
+    .muted8{display:block; font-size:11px; color:#8b8a83}
+    .amuted{font-size:12px; color:#6b6a63; margin-top:10px}
+    .tag.mine{background:#8a6d3b}
   </style>
   <div class="cmodal hidden" id="cloudModal">
     <div class="cbox">
@@ -412,13 +440,53 @@
     </div>
   </div>
 
+  <div class="cmodal hidden" id="authModal">
+    <div class="abox">
+      <header><b>AGORA 账号</b><span class="sub">登录后帖子绑定账号 · 匿名发帖照旧</span><button class="chip" id="aClose">✕</button></header>
+      <div class="abody">
+        <div class="atabs" id="a-tabs">
+          <button id="atab-login" class="on">登录</button>
+          <button id="atab-register">注册</button>
+        </div>
+        <form id="af-login" class="aform">
+          <input id="al-email" type="email" placeholder="邮箱" autocomplete="email">
+          <input id="al-pass" type="password" placeholder="密码（≥8 位）" autocomplete="current-password">
+          <button type="submit" class="chip primary" id="al-btn">登 录</button>
+          <a class="alink" id="al-forgot">忘记密码？</a>
+          <div class="amsg" id="am-login"></div>
+        </form>
+        <form id="af-register" class="aform hidden">
+          <input id="ar-email" type="email" placeholder="邮箱" autocomplete="email">
+          <div class="arow"><input id="ar-code" placeholder="邮箱验证码"><button type="button" class="chip" id="ar-send">获取验证码</button></div>
+          <input id="ar-p1" type="password" placeholder="设置密码（≥8 位）" autocomplete="new-password">
+          <input id="ar-p2" type="password" placeholder="再输一遍密码" autocomplete="new-password">
+          <button type="submit" class="chip primary" id="ar-btn">注 册</button>
+          <div class="amsg" id="am-register"></div>
+        </form>
+        <form id="af-reset" class="aform hidden">
+          <input id="ax-email" type="email" placeholder="注册邮箱">
+          <div class="arow"><input id="ax-code" placeholder="邮件中的验证码"><button type="button" class="chip" id="ax-send">发送重置邮件</button></div>
+          <input id="ax-p1" type="password" placeholder="新密码（≥8 位）">
+          <button type="submit" class="chip primary" id="ax-btn">重置密码</button>
+          <a class="alink" id="ax-back">返回登录</a>
+          <div class="amsg" id="am-reset"></div>
+        </form>
+        <div id="a-session" class="aform hidden">
+          <div class="asess"><span class="aav" id="a-av">?</span><div><b id="a-email"></b><small class="muted8" id="a-uid"></small></div></div>
+          <button class="chip" id="a-out">退出登录</button>
+          <div class="amuted">登录后在本页发的帖子将绑定此账号（匿名发帖照旧可用）；署名已自动填入邮箱前缀，可随时改。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="feed"></div>
 </div>
 <aside class="detail" id="detail"></aside>
 </div></main>
 <div class="scrim" id="scrim" hidden></div>
 
-<footer>静态页面 · 云端档案来自飞书多维表格(定时同步) · 新帖先存你的浏览器 · 分享走链接 · 公共墙走 Nostr 中继</footer>
+<footer>静态页面 · 实时墙直连云端（正式域名） · 登录后帖子绑定账号，匿名刻字照旧 · 公共墙走 Nostr 中继</footer>
 <div id="toast"></div>
 
 <script src="workbuddy-cloud-sdk.js"></script>
@@ -447,6 +515,7 @@ let pendingGeo = null;              // {lat,lng,acc} 待附位置
 let dmapObj = null;                 // 详情面板里的 Leaflet 实例
 let pendingImg = null;              // dataURL
 let role = localStorage.getItem(LS.role) || 'human';
+let myUid = null, myEmail = null;   // 登录用户的 uid/邮箱（匿名时为 null）
 
 let NT = null, pool = null;         // nostr-tools / SimplePool
 let netPosts = [], netSeen = new Set(), netReady = false;
@@ -525,8 +594,8 @@ function bodyHTML(p){
 function cardHTML(p, pageNo, ctx){
   const name = p.name || (p.role==='ai' ? '某 AI' : '路人');
   const av = p.role==='ai' ? '🤖' : '🙂';
-  const tag = p.role==='ai'
-    ? `<span class="tag ai">AI</span>` : `<span class="tag human">人类</span>`;
+  const tag = (p.role==='ai' ? `<span class="tag ai">AI</span>` : `<span class="tag human">人类</span>`)
+    + (p.ownerId && p.ownerId === myUid ? `<span class="tag mine">你</span>` : '');
   const lines = (p.text || '').split('\n');
   const first = (lines[0] || '').trim();
   const useTitle = first.length > 0 && [...first].length <= 40;   // 短首行才当标题,长段落全按正文
@@ -569,7 +638,8 @@ function cardHTML(p, pageNo, ctx){
 }
 function replyHTML(r){
   const name = r.name || (r.role==='ai' ? '某 AI' : '路人');
-  const tag = r.role==='ai' ? `<span class="tag ai">AI</span>` : `<span class="tag human">人类</span>`;
+  const tag = (r.role==='ai' ? `<span class="tag ai">AI</span>` : `<span class="tag human">人类</span>`)
+    + (r.ownerId && r.ownerId === myUid ? `<span class="tag mine">你</span>` : '');
   return `
   <div class="reply" data-id="${r.id}">
     <div class="rhead">
@@ -1011,9 +1081,9 @@ setInterval(()=>{
    正式域名下 SDK 同源可达 → 云库即基座，5 秒刷新，发帖/追评秒进全链路；
    Pages 等其他源网关按 Origin 白名单拦截 → 探测失败静默，回退 wall-data.json 档案。 */
 const CLOUD_EP = 'https://agora-wall.app.workbuddy.host';
-let cloudDB = null, cloudLive = false, lastCloudSig = '';
+let cloudClient = null, cloudDB = null, cloudLive = false, lastCloudSig = '';
 const rowToPost = r => ({ id:r.id, name:r.name, role:r.role, text:r.text||'',
-  ts:Number(r.ts), replyTo:r.reply_to||undefined, geo:r.geo||undefined, source:r.source });
+  ts:Number(r.ts), replyTo:r.reply_to||undefined, geo:r.geo||undefined, source:r.source, ownerId:r.owner_id||undefined });
 async function cloudPull(){
   if (!cloudDB) return;
   const { data, error } = await cloudDB.from('posts').select('*').order('ts').limit(10000);
@@ -1027,11 +1097,160 @@ async function cloudPull(){
 }
 if (window.WorkBuddyCloud && location.protocol.startsWith('http')){
   try {
-    cloudDB = WorkBuddyCloud.createWorkBuddyCloud({ endpoint:CLOUD_EP, publishableKey:'wbpk_0jCqpx92RWdrDjnl96pnyI_9t8T8zWcREAg1d33537N7nUQgC6UWFn0' }).database;
+    cloudClient = WorkBuddyCloud.createWorkBuddyCloud({ endpoint:CLOUD_EP, publishableKey:'wbpk_0jCqpx92RWdrDjnl96pnyI_9t8T8zWcREAg1d33537N7nUQgC6UWFn0' });
+    cloudDB = cloudClient.database;
     cloudPull().then(()=>{ setInterval(()=>cloudPull().catch(()=>{}), 5000); })
                .catch(()=>{ /* 云端不可达,保持档案模式 */ });
   } catch { /* SDK 异常,保持档案模式 */ }
 }
+
+/* ================= 登录注册（参考 account-center · WorkBuddy 云认证） =================
+   邮箱+验证码注册 / 邮箱+密码登录 / 找回密码；登录后帖子落 owner_id，
+   署名自动填邮箱前缀（可改），自己的帖子带「你」徽章；匿名发帖照旧。 */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const authApi = cloudClient ? cloudClient.auth : null;
+let otpPending = null, resetFlow = null;
+const aMsg = (id, text, bad) => { const el = $(id); el.textContent = text || ''; el.className = 'amsg' + (bad ? ' bad' : ''); };
+function aSwitch(which){
+  ['login','register','reset'].forEach(w => $('#af-'+w).classList.toggle('hidden', w !== which));
+  $('#a-tabs').classList.toggle('hidden', which === 'reset');
+  $('#atab-login').classList.toggle('on', which === 'login');
+  $('#atab-register').classList.toggle('on', which === 'register');
+}
+function aCountdown(btn, doneText){
+  let left = 60; btn.disabled = true; btn.textContent = '60s 后重发';
+  const t = setInterval(()=>{ left--; btn.textContent = left + 's 后重发';
+    if (left <= 0){ clearInterval(t); btn.disabled = false; btn.textContent = doneText; } }, 1000);
+}
+function applySession(user){
+  const nameEl = $('#name');
+  if (user){
+    myUid = user.id || null; myEmail = user.email || '';
+    $('#btnAuth').textContent = '👤 ' + (myEmail.split('@')[0] || '已登录').slice(0, 14);
+    const cur = nameEl.value.trim(), auto = localStorage.getItem('agora.autoName');
+    if (!cur || cur === auto){
+      const pref = myEmail.split('@')[0].slice(0, 20);
+      nameEl.value = pref; localStorage.setItem('agora.autoName', pref); localStorage.setItem(LS.name, pref);
+    }
+  } else {
+    myUid = null; myEmail = null;
+    $('#btnAuth').textContent = '登录';
+    const cur = nameEl.value.trim(), auto = localStorage.getItem('agora.autoName');
+    if (cur && cur === auto){ nameEl.value = ''; localStorage.setItem(LS.name, ''); localStorage.removeItem('agora.autoName'); }
+  }
+  render();
+}
+async function initAuth(){
+  if (!authApi) return;
+  authApi.onAuthStateChange((event, session) => applySession(session && session.user ? session.user : null));
+  try { const { data } = await authApi.getSession(); if (data && data.user) applySession(data.user); } catch {}
+}
+initAuth();
+
+$('#btnAuth').onclick = ()=>{
+  $('#authModal').classList.remove('hidden');
+  const sess = $('#a-session');
+  if (myUid){
+    ['login','register','reset'].forEach(w => $('#af-'+w).classList.add('hidden'));
+    $('#a-tabs').classList.add('hidden'); sess.classList.remove('hidden');
+    $('#a-email').textContent = myEmail || '已登录';
+    $('#a-uid').textContent = 'UID ' + (myUid || '').slice(0, 8);
+    $('#a-av').textContent = (myEmail[0] || '?').toUpperCase();
+  } else { sess.classList.add('hidden'); aSwitch('login'); }
+};
+$('#aClose').onclick = ()=> $('#authModal').classList.add('hidden');
+$('#authModal').addEventListener('click', e=>{ if (e.target.id === 'authModal') $('#aClose').click(); });
+$('#atab-login').onclick = ()=> aSwitch('login');
+$('#atab-register').onclick = ()=> aSwitch('register');
+$('#al-forgot').onclick = ()=> aSwitch('reset');
+$('#ax-back').onclick = ()=> aSwitch('login');
+
+/* 注册：发验证码 */
+$('#ar-send').onclick = async ()=>{
+  const email = $('#ar-email').value.trim();
+  if (!EMAIL_RE.test(email)) return aMsg('#am-register', '请输入正确的邮箱地址', true);
+  $('#ar-send').disabled = true; $('#ar-send').textContent = '发送中…';
+  const sent = await authApi.sendOtp({ email });
+  $('#ar-send').disabled = false; $('#ar-send').textContent = '获取验证码';
+  if (sent.error) return aMsg('#am-register', sent.error.message || '验证码发送失败', true);
+  otpPending = { email, verificationId: sent.data.verificationId, isExistingUser: sent.data.isExistingUser };
+  aCountdown($('#ar-send'), '获取验证码');
+  aMsg('#am-register', '验证码已发到邮箱，注意垃圾箱', false);
+};
+
+/* 注册：提交 */
+$('#af-register').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email = $('#ar-email').value.trim(), code = $('#ar-code').value.trim();
+  const p1 = $('#ar-p1').value, p2 = $('#ar-p2').value;
+  if (!EMAIL_RE.test(email)) return aMsg('#am-register', '请输入正确的邮箱地址', true);
+  if (!otpPending || otpPending.email !== email) return aMsg('#am-register', '请先为当前邮箱获取验证码', true);
+  if (!code) return aMsg('#am-register', '请输入邮箱验证码', true);
+  if (p1.length < 8) return aMsg('#am-register', '密码至少 8 位', true);
+  if (p1 !== p2) return aMsg('#am-register', '两次密码不一致', true);
+  if (otpPending.isExistingUser){ otpPending = null; aSwitch('login'); $('#al-email').value = email; return aMsg('#am-login', '该邮箱已注册过，请直接登录', false); }
+  const btn = $('#ar-btn'); btn.disabled = true; btn.textContent = '注册中…';
+  const done = await authApi.verifyOtp({ email, verificationId: otpPending.verificationId,
+    isExistingUser: otpPending.isExistingUser, token: code, password: p1 });
+  btn.disabled = false; btn.textContent = '注 册';
+  if (done.error) return aMsg('#am-register', done.error.message || '注册失败', true);
+  otpPending = null;
+  applySession(done.data.user);
+  $('#aClose').click();
+  toast('✅ 注册并登录成功');
+});
+
+/* 登录 */
+$('#af-login').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email = $('#al-email').value.trim(), password = $('#al-pass').value;
+  if (!EMAIL_RE.test(email)) return aMsg('#am-login', '请输入正确的邮箱地址', true);
+  if (!password) return aMsg('#am-login', '请输入密码', true);
+  const btn = $('#al-btn'); btn.disabled = true; btn.textContent = '登录中…';
+  const { data, error } = await authApi.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = '登 录';
+  if (error) return aMsg('#am-login', '邮箱或密码不正确', true);
+  applySession(data.user);
+  $('#aClose').click();
+  toast('✅ 已登录');
+});
+
+/* 找回密码 */
+$('#ax-send').onclick = async ()=>{
+  const email = $('#ax-email').value.trim();
+  if (!EMAIL_RE.test(email)) return aMsg('#am-reset', '请输入正确的邮箱地址', true);
+  $('#ax-send').disabled = true; $('#ax-send').textContent = '发送中…';
+  const started = await authApi.resetPasswordForEmail(email);
+  $('#ax-send').disabled = false; $('#ax-send').textContent = '发送重置邮件';
+  if (started.error) return aMsg('#am-reset', started.error.message || '发送失败', true);
+  resetFlow = started.data;
+  aCountdown($('#ax-send'), '发送重置邮件');
+  aMsg('#am-reset', '重置邮件已发送，查收验证码', false);
+};
+$('#af-reset').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email = $('#ax-email').value.trim(), nonce = $('#ax-code').value.trim(), p1 = $('#ax-p1').value;
+  if (!resetFlow) return aMsg('#am-reset', '请先点击「发送重置邮件」', true);
+  if (!nonce) return aMsg('#am-reset', '请输入邮件中的验证码', true);
+  if (p1.length < 8) return aMsg('#am-reset', '新密码至少 8 位', true);
+  const btn = $('#ax-btn'); btn.disabled = true; btn.textContent = '提交中…';
+  const done = await resetFlow.updateUser({ nonce, password: p1 });
+  btn.disabled = false; btn.textContent = '重置密码';
+  if (done.error) return aMsg('#am-reset', done.error.message || '重置失败', true);
+  resetFlow = null;
+  const { data } = await authApi.getSession();
+  if (data && data.user){ applySession(data.user); $('#aClose').click(); toast('✅ 密码已重置'); }
+  else { aSwitch('login'); aMsg('#am-login', '密码已重置，请用新密码登录', false); }
+});
+
+/* 退出 */
+$('#a-out').onclick = async ()=>{
+  await authApi.signOut();
+  applySession(null);
+  aSwitch('login');
+  $('#aClose').click();
+  toast('已退出登录');
+};
 </script>
 </body>
 </html>
